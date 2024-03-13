@@ -6,6 +6,7 @@ import time
 import json
 import os
 from tkinter import filedialog, messagebox
+import threading
 
 # Установка имени файла конфигурации
 config_file = "config.json"
@@ -54,7 +55,7 @@ def setup_settings():
             sound_duration = int(sound_duration_entry.get())
             frame_pause = int(frame_pause_entry.get())
             save_settings()
-            settings_window.destroy()
+            # settings_window.destroy()
         except ValueError:
             messagebox.showerror("Error", "Please enter numeric values for settings")
 
@@ -77,13 +78,23 @@ def setup_settings():
 
     settings_window.mainloop()
 
+# Функция для отображения кадра
+def display_frame(frame):
+    cv2.imshow("Animation", frame)
+    cv2.waitKey(frame_pause)
+
 # Загрузка настроек и установка параметров
 load_settings()
-setup_settings()
-
 # Создание корневого окна Tkinter для диалога выбора GIF файла
 root = tk.Tk()
 root.withdraw()
+
+def menu_thread():
+    setup_settings()
+
+# Запуск потока для работы с меню
+menu_t = threading.Thread(target=menu_thread)
+menu_t.start()
 
 # Запрос выбора GIF файла у пользователя
 gif_path = filedialog.askopenfilename(filetypes=[("GIF Files", "*.gif")])
@@ -94,16 +105,6 @@ if not gif_path:
 # Открытие GIF файла с помощью OpenCV и чтение первого кадра
 gif = cv2.VideoCapture(gif_path)
 _, first_frame = gif.read()
-
-# Функция для отображения кадра
-def display_frame(frame):
-    cv2.imshow("Animation", frame)
-    cv2.waitKey(frame_pause)
-
-# Инициализация переменных для обнаружения звука
-sound_detected = False
-reset_animation = False
-last_sound_time = time.time()
 
 # Функция для обнаружения звука во входных данных аудио
 def detect_sound(in_data, frame_count, time_info, status):
@@ -119,6 +120,11 @@ def detect_sound(in_data, frame_count, time_info, status):
             gif.set(cv2.CAP_PROP_POS_FRAMES, 0)
             reset_animation = True
     return None, pyaudio.paContinue
+
+# Инициализация переменных для обнаружения звука
+sound_detected = False
+reset_animation = False
+last_sound_time = time.time()
 
 # Настройка записи аудио с использованием PyAudio
 p = pyaudio.PyAudio()
