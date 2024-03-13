@@ -7,15 +7,17 @@ import json
 import os
 from tkinter import filedialog, messagebox
 
+# Установка имени файла конфигурации
 config_file = "config.json"
 
-# Default global variables for settings
+# Глобальные переменные для настроек по умолчанию
 default_settings = {
     "sound_threshold": 600,
     "sound_duration": 15,
     "frame_pause": 30
 }
 
+# Загрузка настроек из файла конфигурации или использование значений по умолчанию
 def load_settings():
     global sound_threshold, sound_duration, frame_pause
     if os.path.exists(config_file):
@@ -29,6 +31,7 @@ def load_settings():
         sound_duration = default_settings["sound_duration"]
         frame_pause = default_settings["frame_pause"]
 
+# Сохранение текущих настроек в файле конфигурации
 def save_settings():
     settings = {
         "sound_threshold": sound_threshold,
@@ -38,9 +41,7 @@ def save_settings():
     with open(config_file, 'w') as file:
         json.dump(settings, file)
 
-# Load settings or use default values
-load_settings()
-
+# Запуск окна настроек для изменения параметров
 def setup_settings():
     global sound_threshold, sound_duration, frame_pause
     settings_window = tk.Tk()
@@ -76,28 +77,35 @@ def setup_settings():
 
     settings_window.mainloop()
 
-# Set up settings first
+# Загрузка настроек и установка параметров
+load_settings()
 setup_settings()
 
+# Создание корневого окна Tkinter для диалога выбора GIF файла
 root = tk.Tk()
 root.withdraw()
 
+# Запрос выбора GIF файла у пользователя
 gif_path = filedialog.askopenfilename(filetypes=[("GIF Files", "*.gif")])
 if not gif_path:
     print("No GIF file selected. Exiting the program.")
     exit()
 
+# Открытие GIF файла с помощью OpenCV и чтение первого кадра
 gif = cv2.VideoCapture(gif_path)
 _, first_frame = gif.read()
 
+# Функция для отображения кадра
 def display_frame(frame):
     cv2.imshow("Animation", frame)
     cv2.waitKey(frame_pause)
 
+# Инициализация переменных для обнаружения звука
 sound_detected = False
 reset_animation = False
 last_sound_time = time.time()
 
+# Функция для обнаружения звука во входных данных аудио
 def detect_sound(in_data, frame_count, time_info, status):
     global sound_detected, reset_animation, last_sound_time
     audio_data = np.frombuffer(in_data, dtype=np.int16)
@@ -112,6 +120,7 @@ def detect_sound(in_data, frame_count, time_info, status):
             reset_animation = True
     return None, pyaudio.paContinue
 
+# Настройка записи аудио с использованием PyAudio
 p = pyaudio.PyAudio()
 stream = p.open(format=pyaudio.paInt16,
                 channels=1,
@@ -121,6 +130,7 @@ stream = p.open(format=pyaudio.paInt16,
                 stream_callback=detect_sound)
 stream.start_stream()
 
+# Основной цикл отображения анимации
 while True:
     if sound_detected:
         _, frame = gif.read()
@@ -131,6 +141,7 @@ while True:
     else:
         display_frame(first_frame)
 
+# Остановка записи аудио и закрытие всех окон
 stream.stop_stream()
 stream.close()
 p.terminate()
