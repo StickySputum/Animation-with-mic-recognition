@@ -199,3 +199,4 @@ stream.stop_stream()
 stream.close()
 p.terminate()
 cv2.destroyAllWindows()
+# Конец скрипта
