@@ -14,10 +14,10 @@ config_file = "config.json"
 
 # Глобальные переменные для настроек по умолчанию
 default_settings = {
-    "sound_threshold": 600,
-    "sound_duration": 15,
-    "frame_pause": 30,
-    "selected_device_index": 0
+    "sound_threshold": 600,  # Порог звука для обнаружения
+    "sound_duration": 15,  # Длительность звука для сброса анимации (в десятых долях секунды)
+    "frame_pause": 30,  # Пауза между кадрами анимации (в миллисекундах)
+    "selected_device_index": 0  # Индекс выбранного устройства для записи аудио
 }
 
 # Загрузка настроек из файла конфигурации или использование значений по умолчанию
@@ -51,6 +51,7 @@ def save_settings():
         json.dump(settings, file)
     selected_device_index = new_selected_device_index  # Обновление selected_device_index
 
+# Функция для выбора аудиоустройства
 def select_audio_device_menu():
     p = pyaudio.PyAudio()
     audio_devices = []
@@ -60,6 +61,7 @@ def select_audio_device_menu():
     p.terminate()
     return audio_devices
 
+# Настройка окна настроек
 def setup_settings(selected_device_index):
     global sound_threshold, sound_duration, frame_pause
     settings_window = tk.Tk()
@@ -67,6 +69,7 @@ def setup_settings(selected_device_index):
     settings_window.geometry("250x200")  # Задаем размер окна (ширина x высота)
     settings_window.resizable(False, False)  # Запрещаем изменение размеров окна пользователем
 
+    # Функция сохранения настроек и их закрытие
     def save_settings_and_close():
         global sound_threshold, sound_duration, frame_pause, selected_device_index, new_selected_device_index, stream, p
         try:
