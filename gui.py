@@ -6,6 +6,7 @@ import time
 import json
 import os
 from tkinter import filedialog, messagebox
+from tkinter import ttk
 import threading
 
 # Установка имени файла конфигурации
@@ -15,47 +16,81 @@ config_file = "config.json"
 default_settings = {
     "sound_threshold": 600,
     "sound_duration": 15,
-    "frame_pause": 30
+    "frame_pause": 30,
+    "selected_device_index": 0
 }
 
 # Загрузка настроек из файла конфигурации или использование значений по умолчанию
 def load_settings():
-    global sound_threshold, sound_duration, frame_pause
+    global sound_threshold, sound_duration, frame_pause, selected_device_index, new_selected_device_index
     if os.path.exists(config_file):
         with open(config_file, 'r') as file:
             settings = json.load(file)
             sound_threshold = settings.get("sound_threshold", default_settings["sound_threshold"])
             sound_duration = settings.get("sound_duration", default_settings["sound_duration"])
             frame_pause = settings.get("frame_pause", default_settings["frame_pause"])
+            selected_device_index = settings.get("selected_device_index", default_settings["selected_device_index"])
+            new_selected_device_index = selected_device_index
     else:
         sound_threshold = default_settings["sound_threshold"]
         sound_duration = default_settings["sound_duration"]
         frame_pause = default_settings["frame_pause"]
+        selected_device_index = default_settings["selected_device_index"]
+        new_selected_device_index = selected_device_index
 
 # Сохранение текущих настроек в файле конфигурации
 def save_settings():
+    global sound_threshold, sound_duration, frame_pause, selected_device_index, new_selected_device_index
     settings = {
         "sound_threshold": sound_threshold,
         "sound_duration": sound_duration,
-        "frame_pause": frame_pause
+        "frame_pause": frame_pause,
+        "selected_device_index": new_selected_device_index
     }
     with open(config_file, 'w') as file:
         json.dump(settings, file)
+    selected_device_index = new_selected_device_index  # Обновление selected_device_index
 
-# Запуск окна настроек для изменения параметров
-def setup_settings():
+def select_audio_device_menu():
+    p = pyaudio.PyAudio()
+    audio_devices = []
+    for i in range(p.get_device_count()):
+        dev_info = p.get_device_info_by_index(i)
+        audio_devices.append((i, dev_info['name']))
+    p.terminate()
+    return audio_devices
+
+def setup_settings(selected_device_index):
     global sound_threshold, sound_duration, frame_pause
     settings_window = tk.Tk()
     settings_window.title("Settings")
+    settings_window.geometry("250x200")  # Задаем размер окна (ширина x высота)
+    settings_window.resizable(False, False)  # Запрещаем изменение размеров окна пользователем
 
     def save_settings_and_close():
-        global sound_threshold, sound_duration, frame_pause
+        global sound_threshold, sound_duration, frame_pause, selected_device_index, new_selected_device_index, stream, p
         try:
             sound_threshold = int(sound_threshold_entry.get())
             sound_duration = int(sound_duration_entry.get())
             frame_pause = int(frame_pause_entry.get())
+            new_selected_device_index = audio_device_combobox.current()
+
             save_settings()
-            # settings_window.destroy()
+
+            stream.stop_stream()
+            stream.close()
+            p.terminate()
+
+            p = pyaudio.PyAudio()
+            stream = p.open(format=pyaudio.paInt16,
+                            channels=1,
+                            rate=44100,
+                            input=True,
+                            frames_per_buffer=1024,
+                            stream_callback=detect_sound,
+                            input_device_index=new_selected_device_index)
+            stream.start_stream()
+
         except ValueError:
             messagebox.showerror("Error", "Please enter numeric values for settings")
 
@@ -74,6 +109,15 @@ def setup_settings():
     frame_pause_entry.insert(0, str(frame_pause))
     frame_pause_entry.pack()
 
+    audio_devices = select_audio_device_menu()
+    audio_device_names = [f"{device[1]}" for device in audio_devices]
+
+    tk.Label(settings_window, text="Select Audio Device:").pack()
+    audio_device_combobox = ttk.Combobox(settings_window, values=audio_device_names)
+    selected_device_name = [device[1] for device in audio_devices if device[0] == selected_device_index][0]
+    audio_device_combobox.set(selected_device_name)
+    audio_device_combobox.pack()
+
     tk.Button(settings_window, text="Save", command=save_settings_and_close).pack()
 
     settings_window.mainloop()
@@ -89,13 +133,12 @@ load_settings()
 root = tk.Tk()
 root.withdraw()
 
-def menu_thread():
-    setup_settings()
+def menu_thread(selected_device_index):
+    setup_settings(selected_device_index)
 
-# Запуск потока для работы с меню
-menu_t = threading.Thread(target=menu_thread)
+# Передача значения переменной selected_device_index в функцию menu_thread
+menu_t = threading.Thread(target=menu_thread, args=(selected_device_index,))
 menu_t.start()
-
 # Запрос выбора GIF файла у пользователя
 gif_path = filedialog.askopenfilename(filetypes=[("GIF Files", "*.gif")])
 if not gif_path:
@@ -133,7 +176,8 @@ stream = p.open(format=pyaudio.paInt16,
                 rate=44100,
                 input=True,
                 frames_per_buffer=1024,
-                stream_callback=detect_sound)
+                stream_callback=detect_sound,
+                input_device_index=new_selected_device_index)  # Используйте new_selected_device_index здесь
 stream.start_stream()
 
 # Основной цикл отображения анимации
